@@ -1,0 +1,190 @@
+#!/usr/bin/env node
+
+import yargs from 'yargs/yargs';
+import { hideBin } from 'yargs/helpers';
+// import path from 'path'; // path is unused, remove import
+import readline from 'readline'; // For user confirmation
+
+// Import core modules using ES module syntax
+// Note: These will show errors until the corresponding files are updated to use 'export'
+import { loadConfig } from './config';
+import { scanRepository } from './fileScanner';
+import { detectFramework } from './frameworkDetector';
+import { planFileStructure } from './llmPlanner';
+import { generateSchemaFiles } from './llmGenerator';
+import { writeSchemaFiles } from './fileWriter';
+import { generatePatch, PATCH_FILE_NAME } from './gitUtils';
+
+// Define an interface for the expected argv structure based on yargs options
+// Export the interface so it can be used by other modules (like config.ts)
+export interface Argv {
+  [x: string]: unknown;
+  outputDir: string;
+  outputFile: string;
+  ignoreFile: string;
+  retryAttempts: number;
+  temperatureIncrement: number;
+  initialTemperature: number;
+  apiKey: string | undefined; // Can be undefined if not provided
+  apiBase: string | undefined; // Can be undefined if not provided
+  apiBaseModel: string | undefined; // Can be undefined if not provided
+  yes: boolean;
+  _: (string | number)[];
+  $0: string;
+}
+
+
+// --- Argument Parsing ---
+// Explicitly type argv using the interface
+const argv = yargs(hideBin(process.argv)).options({
+  'output-dir': {
+    alias: 'o',
+    type: 'string',
+    description: 'Directory to output the OpenAPI schema files',
+    default: 'openapi',
+  },
+  'output-file': {
+    alias: 'f',
+    type: 'string',
+    description: 'Name of the main OpenAPI entry file',
+    default: 'schema.yaml',
+  },
+  'ignore-file': {
+    alias: 'i',
+    type: 'string',
+    description: 'Custom ignore file (gitignore syntax)',
+    default: '.openapigenignore',
+  },
+  'retry-attempts': {
+    type: 'number',
+    description: 'Number of retry attempts for LLM calls',
+    default: 3,
+  },
+  'temperature-increment': {
+    type: 'number',
+    description: 'Temperature increment per retry attempt',
+    default: 0.1,
+  },
+  'initial-temperature': {
+    type: 'number',
+    description: 'Initial temperature for LLM calls',
+    default: 0.2,
+  },
+  'api-key': {
+    type: 'string',
+    description: 'AI API Key (overrides .env)',
+  },
+  'api-base': {
+    type: 'string',
+    description: 'AI API Base URL (overrides .env)',
+  },
+  'api-base-model': {
+    type: 'string',
+    description: 'AI Base model (overrides .env)',
+  },
+  'yes': {
+    alias: 'y',
+    type: 'boolean',
+    description: 'Skip user confirmation prompt',
+    default: false,
+  }
+})
+  .usage('Usage: $0 [options]')
+  .help()
+  .alias('help', 'h')
+  .strict() // Enforce validation
+  .parseSync() as Argv; // Use parseSync and cast to Argv
+
+// --- Main Execution Logic ---
+async function main() {
+  console.log('Starting OpenAPI Generator...');
+
+  try {
+    // 1. Load Configuration
+    const config = loadConfig(argv); // Pass parsed args to config loader
+    // TODO: Ensure config object is fully populated after implementing loadConfig
+    console.log("Effective config:", config); // Debug log
+
+    // 2. Scan Repository
+    const { includedFiles, repomixContent } = scanRepository(process.cwd(), config.ignoreFile, config.outputDir);
+    if (includedFiles.length === 0) {
+      console.log('No files found to process based on ignore rules. Exiting.');
+      return;
+    }
+    // TODO: Handle potential errors from scanRepository
+
+    // 3. Detect Framework
+    const detectedFramework = detectFramework(includedFiles);
+    // TODO: Handle potential errors from detectFramework
+
+    // 4. User Confirmation
+    console.log('\n--- Summary ---');
+    console.log(`Detected Framework: ${detectedFramework}`);
+    console.log(`Files included: ${includedFiles.length}`);
+    console.log(`Output Directory: ${config.outputDir}`);
+    console.log(`Main Schema File: ${config.outputFile}`);
+    console.log('---------------');
+
+    if (!argv.yes) {
+      const proceed = await askForConfirmation('Proceed with LLM analysis? (y/N): ');
+      if (!proceed) {
+        console.log('Operation cancelled by user.');
+        return;
+      }
+    }
+
+    // 5. LLM Planning
+    const plannedFiles = await planFileStructure(config, repomixContent, detectedFramework);
+    // TODO: Handle potential errors from planFileStructure
+
+    // 6. LLM Generation
+    const generatedContentMap = await generateSchemaFiles(config, repomixContent, detectedFramework, plannedFiles);
+    // TODO: Handle potential errors from generateSchemaFiles
+
+    // 7. Write Schema Files
+    writeSchemaFiles(config.outputDir, generatedContentMap);
+    // TODO: Handle potential errors from writeSchemaFiles
+
+    // 8. Generate Git Patch
+    const patchFilePath = generatePatch(config.outputDir);
+    // TODO: Handle potential errors from generatePatch (e.g., null return)
+
+    // 9. Completion Message
+    console.log('\n✅ OpenAPI schema generation complete!');
+    if (patchFilePath) {
+      console.log(`   Staged changes saved to: ${PATCH_FILE_NAME}`);
+    } else {
+      console.log(`   Schema files written to: ${config.outputDir}`);
+      console.log('   (Skipped patch generation as this is not a git repository or an error occurred)');
+    }
+
+  } catch (error) {
+    // Type guard for error message
+    if (error instanceof Error) {
+      console.error('\n❌ An error occurred:', error.message);
+    } else {
+      console.error('\n❌ An unknown error occurred:', error);
+    }
+    // console.error(error.stack); // Optional: more detailed stack trace
+    process.exit(1); // Exit with error code
+  }
+}
+
+// Helper for user confirmation
+function askForConfirmation(question: string): Promise<boolean> { // Add type for question and return Promise
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  return new Promise((resolve) => {
+    rl.question(question, (answer: string) => { // Add type for answer
+      rl.close();
+      resolve(answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes');
+    });
+  });
+}
+
+
+// --- Run Main Function ---
+main();

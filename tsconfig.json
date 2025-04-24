@@ -1,0 +1,50 @@
+{
+  "compilerOptions": {
+    /* Base Options: */
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "target": "ES2020", // Target modern Node.js versions
+    "allowJs": true, // Allow gradual migration if needed
+    "resolveJsonModule": true,
+    "moduleDetection": "force",
+    "isolatedModules": true, // Recommended for faster builds
+
+    /* Strictness */
+    "strict": true,
+    "noUncheckedIndexedAccess": true, // Recommended for stricter checks
+    "noImplicitAny": true, // Enforce explicit types
+
+    /* If NOT transpiling with TypeScript: */
+    // "module": "preserve", // Keep ES module syntax for tools like ts-node-dev
+    // "noEmit": true, // Don't output JS files if using a different transpiler
+
+    /* If your code runs in the DOM: */
+    // "lib": ["es2022", "dom", "dom.iterable"],
+
+    /* If you're building for a library: */
+    // "declaration": true,
+    // "declarationMap": true,
+    // "sourceMap": true,
+
+    /* If you're building for a Node.js project: */
+    "module": "CommonJS", // Output CommonJS for Node.js compatibility
+    "outDir": "./dist", // Output directory for compiled JS
+    "rootDir": "./src", // Source directory
+    "sourceMap": true, // Generate source maps for debugging
+
+    /* Module Resolution Options */
+    "moduleResolution": "node", // Use Node.js module resolution
+    "baseUrl": ".", // Base directory for non-relative imports (optional)
+    "paths": { // Path aliases (optional)
+      // "@/*": ["src/*"]
+    },
+
+    /* Linting */
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+  },
+  "include": ["src/**/*"], // Files to include in compilation
+  "exclude": ["node_modules", "dist"] // Files/directories to exclude
+}

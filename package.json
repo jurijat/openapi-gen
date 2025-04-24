@@ -1,0 +1,32 @@
+{
+  "name": "openapi-gen",
+  "version": "1.0.0",
+  "description": "Generates OpenAPI schemas from repository code using an LLM.",
+  "main": "dist/cli.js",
+  "bin": {
+    "openapi-gen": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/cli.js",
+    "dev": "tsc --watch & node --watch dist/cli.js",
+    "prepublishOnly": "npm run build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.8.4",
+    "dotenv": "^16.5.0",
+    "ignore": "^7.0.3",
+    "js-yaml": "^4.1.0",
+    "yargs": "^17.7.2"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^22.14.1",
+    "@types/yargs": "^17.0.33",
+    "typescript": "^5.8.3"
+  }
+}
